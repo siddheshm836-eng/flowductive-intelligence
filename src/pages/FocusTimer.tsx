@@ -53,7 +53,10 @@ export default function FocusTimer() {
   };
 
   const saveSession = async (sessionMode: Mode, duration: number, taskTitle?: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data, error } = await supabase.from("focus_sessions").insert({
+      user_id: user.id,
       duration,
       type: sessionMode,
       completed: true,

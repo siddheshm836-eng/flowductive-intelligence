@@ -43,9 +43,11 @@ export default function WorkflowBoard() {
 
   const addTask = async (colId: string) => {
     if (!newTaskTitle.trim()) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data, error } = await supabase
       .from("tasks")
-      .insert({ title: newTaskTitle.trim(), status: colId, priority: "medium" })
+      .insert({ title: newTaskTitle.trim(), status: colId, priority: "medium", user_id: user.id })
       .select()
       .single();
     if (error) { toast.error("Failed to add task"); return; }

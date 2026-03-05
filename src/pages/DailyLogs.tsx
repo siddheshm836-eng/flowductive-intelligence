@@ -41,7 +41,10 @@ export default function DailyLogs() {
   const addLog = async () => {
     if (!form.title || !form.content) { toast.error("Title and content are required"); return; }
     setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaving(false); return; }
     const { data, error } = await supabase.from("log_entries").insert({
+      user_id: user.id,
       title: form.title,
       content: form.content,
       mood: form.mood,
