@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import AppLayout from "@/components/AppLayout";
-import { mockFocusSessions } from "@/data/mockData";
 import { FocusSession } from "@/types/index";
-import { Play, Pause, RotateCcw, Coffee, Brain, CheckCircle2, Timer } from "lucide-react";
+import { Play, Pause, RotateCcw, Coffee, Brain, CheckCircle2, Timer, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type Mode = "work" | "break" | "long-break";
 
@@ -16,9 +17,10 @@ export default function FocusTimer() {
   const [mode, setMode] = useState<Mode>("work");
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [running, setRunning] = useState(false);
-  const [sessions, setSessions] = useState<FocusSession[]>(mockFocusSessions);
-  const [currentTask, setCurrentTask] = useState("Building Dashboard Components");
-  const [completedToday, setCompletedToday] = useState(3);
+  const [sessions, setSessions] = useState<FocusSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [currentTask, setCurrentTask] = useState("Focus session");
+  const [completedToday, setCompletedToday] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentMode = MODES.find(m => m.id === mode)!;
@@ -26,21 +28,56 @@ export default function FocusTimer() {
   const progress = ((totalDuration - timeLeft) / totalDuration) * 100;
 
   useEffect(() => {
+    fetchSessions();
+  }, []);
+
+  const fetchSessions = async () => {
+    const { data, error } = await supabase
+      .from("focus_sessions")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (error) { toast.error("Failed to load sessions"); setLoadingSessions(false); return; }
+    const mapped: FocusSession[] = (data || []).map(s => ({
+      id: s.id,
+      date: s.date,
+      duration: s.duration,
+      type: s.type as FocusSession["type"],
+      completed: s.completed,
+      taskTitle: s.task_title || undefined,
+    }));
+    setSessions(mapped);
+    const today = new Date().toISOString().split("T")[0];
+    setCompletedToday(mapped.filter(s => s.date === today && s.completed && s.type === "work").length);
+    setLoadingSessions(false);
+  };
+
+  const saveSession = async (sessionMode: Mode, duration: number, taskTitle?: string) => {
+    const { data, error } = await supabase.from("focus_sessions").insert({
+      duration,
+      type: sessionMode,
+      completed: true,
+      task_title: sessionMode === "work" ? taskTitle : null,
+      date: new Date().toISOString().split("T")[0],
+    }).select().single();
+    if (error) { console.error("Failed to save session", error); return; }
+    const session: FocusSession = {
+      id: data.id, date: data.date, duration: data.duration,
+      type: data.type as FocusSession["type"], completed: data.completed,
+      taskTitle: data.task_title || undefined,
+    };
+    setSessions(prev => [session, ...prev]);
+    if (sessionMode === "work") setCompletedToday(c => c + 1);
+    toast.success(`${sessionMode === "work" ? "Focus" : "Break"} session completed! 🎉`);
+  };
+
+  useEffect(() => {
     if (running) {
       intervalRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
             setRunning(false);
-            setCompletedToday(c => c + 1);
-            const newSession: FocusSession = {
-              id: "f_" + Date.now(),
-              date: new Date().toISOString().split("T")[0],
-              duration: currentMode.duration / 60,
-              type: mode,
-              completed: true,
-              taskTitle: mode === "work" ? currentTask : undefined,
-            };
-            setSessions(prev => [newSession, ...prev]);
+            saveSession(mode, currentMode.duration / 60, mode === "work" ? currentTask : undefined);
             return currentMode.duration;
           }
           return prev - 1;
@@ -63,7 +100,6 @@ export default function FocusTimer() {
 
   const mm = Math.floor(timeLeft / 60).toString().padStart(2, "0");
   const ss = (timeLeft % 60).toString().padStart(2, "0");
-
   const circumference = 2 * Math.PI * 100;
 
   return (
@@ -75,9 +111,7 @@ export default function FocusTimer() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Timer */}
           <div className="lg:col-span-2 card-surface rounded-2xl p-8">
-            {/* Mode selector */}
             <div className="flex gap-2 mb-8">
               {MODES.map(m => (
                 <button
@@ -93,7 +127,6 @@ export default function FocusTimer() {
               ))}
             </div>
 
-            {/* Ring timer */}
             <div className="flex flex-col items-center mb-8">
               <div className="relative w-56 h-56">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 220 220">
@@ -114,7 +147,6 @@ export default function FocusTimer() {
               </div>
             </div>
 
-            {/* Task */}
             <div className="mb-6">
               <label className="text-xs text-muted-foreground mb-1.5 block">Current Task</label>
               <input
@@ -124,7 +156,6 @@ export default function FocusTimer() {
               />
             </div>
 
-            {/* Controls */}
             <div className="flex items-center justify-center gap-4">
               <button onClick={reset} className="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-3 transition-all">
                 <RotateCcw className="w-5 h-5" />
@@ -142,22 +173,27 @@ export default function FocusTimer() {
             <p className="text-center text-xs text-muted-foreground mt-3">{completedToday} sessions completed today</p>
           </div>
 
-          {/* Session history */}
           <div className="card-surface rounded-2xl p-5">
             <h3 className="font-display font-semibold text-sm text-foreground mb-4 flex items-center gap-2">
               <Timer className="w-4 h-4 text-cyan" /> Session History
             </h3>
-            <div className="space-y-2 overflow-y-auto max-h-80 scrollbar-thin">
-              {sessions.slice(0, 12).map(s => (
-                <div key={s.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                  <CheckCircle2 className={`w-3.5 h-3.5 flex-shrink-0 ${s.type === "work" ? "text-cyan" : "text-emerald"}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-foreground truncate">{s.taskTitle || s.type}</p>
-                    <p className="text-xs text-muted-foreground">{s.duration}m · {s.date}</p>
+            {loadingSessions ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+            ) : sessions.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">No sessions yet. Start your first focus session!</p>
+            ) : (
+              <div className="space-y-2 overflow-y-auto max-h-80 scrollbar-thin">
+                {sessions.slice(0, 12).map(s => (
+                  <div key={s.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                    <CheckCircle2 className={`w-3.5 h-3.5 flex-shrink-0 ${s.type === "work" ? "text-cyan" : "text-emerald"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-foreground truncate">{s.taskTitle || s.type}</p>
+                      <p className="text-xs text-muted-foreground">{s.duration}m · {s.date}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <div className="mt-4 pt-4 border-t border-border space-y-2">
               <div className="flex justify-between text-xs">

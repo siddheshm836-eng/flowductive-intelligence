@@ -1,36 +1,73 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppLayout from "@/components/AppLayout";
-import { mockTasks, mockColumns } from "@/data/mockData";
+import { mockColumns } from "@/data/mockData";
 import { Task } from "@/types/index";
-import { Plus, MoreHorizontal, Flag, Tag, Calendar, X, Check } from "lucide-react";
+import { Plus, MoreHorizontal, Flag, Calendar, X, Check, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function WorkflowBoard() {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState<string | null>(null);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [dragTask, setDragTask] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
-  const getTasksByStatus = (status: string) => tasks.filter(t => t.status === status);
+  useEffect(() => {
+    fetchTasks();
+  }, []);
 
-  const addTask = (colId: string) => {
-    if (!newTaskTitle.trim()) return;
-    const task: Task = {
-      id: "t_" + Date.now(),
-      title: newTaskTitle.trim(),
-      description: "",
-      status: colId as Task["status"],
-      priority: "medium",
-      tags: [],
-      createdAt: new Date().toISOString(),
-    };
-    setTasks(prev => [...prev, task]);
-    setNewTaskTitle("");
-    setShowAddTask(null);
+  const fetchTasks = async () => {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) { toast.error("Failed to load tasks"); return; }
+    const mapped: Task[] = (data || []).map(t => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      status: t.status as Task["status"],
+      priority: t.priority as Task["priority"],
+      tags: t.tags || [],
+      createdAt: t.created_at,
+      dueDate: t.due_date || undefined,
+      completedAt: t.completed_at || undefined,
+    }));
+    setTasks(mapped);
+    setLoading(false);
   };
 
-  const moveTask = (taskId: string, newStatus: string) => {
+  const getTasksByStatus = (status: string) => tasks.filter(t => t.status === status);
+
+  const addTask = async (colId: string) => {
+    if (!newTaskTitle.trim()) return;
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({ title: newTaskTitle.trim(), status: colId, priority: "medium" })
+      .select()
+      .single();
+    if (error) { toast.error("Failed to add task"); return; }
+    const task: Task = {
+      id: data.id,
+      title: data.title,
+      description: data.description,
+      status: data.status as Task["status"],
+      priority: data.priority as Task["priority"],
+      tags: data.tags || [],
+      createdAt: data.created_at,
+    };
+    setTasks(prev => [task, ...prev]);
+    setNewTaskTitle("");
+    setShowAddTask(null);
+    toast.success("Task added");
+  };
+
+  const moveTask = async (taskId: string, newStatus: string) => {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as Task["status"] } : t));
+    const { error } = await supabase.from("tasks").update({ status: newStatus }).eq("id", taskId);
+    if (error) { toast.error("Failed to move task"); fetchTasks(); }
   };
 
   const handleDrop = (colId: string) => {
@@ -44,6 +81,14 @@ export default function WorkflowBoard() {
     medium: "text-amber bg-amber/10",
     low: "text-emerald bg-emerald/10",
   };
+
+  if (loading) return (
+    <AppLayout>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    </AppLayout>
+  );
 
   return (
     <AppLayout>
@@ -71,7 +116,6 @@ export default function WorkflowBoard() {
                 onDrop={() => handleDrop(col.id)}
                 onDragLeave={() => setDragOver(null)}
               >
-                {/* Column header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ background: col.color }} />
@@ -86,7 +130,6 @@ export default function WorkflowBoard() {
                   </button>
                 </div>
 
-                {/* Tasks */}
                 <div className="flex-1 p-3 space-y-2 overflow-y-auto scrollbar-thin">
                   {colTasks.map(task => (
                     <div
@@ -124,7 +167,6 @@ export default function WorkflowBoard() {
                     </div>
                   ))}
 
-                  {/* Add task inline */}
                   {showAddTask === col.id && (
                     <div className="card-surface-2 rounded-lg p-3">
                       <input
