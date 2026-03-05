@@ -14,7 +14,156 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      focus_sessions: {
+        Row: {
+          completed: boolean
+          created_at: string
+          date: string
+          duration: number
+          id: string
+          task_title: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          date?: string
+          duration?: number
+          id?: string
+          task_title?: string | null
+          type?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          date?: string
+          duration?: number
+          id?: string
+          task_title?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      log_entries: {
+        Row: {
+          content: string
+          created_at: string
+          date: string
+          energy: number
+          id: string
+          mood: number
+          productivity: number
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          date?: string
+          energy?: number
+          id?: string
+          mood?: number
+          productivity?: number
+          tags?: string[]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          date?: string
+          energy?: number
+          id?: string
+          mood?: number
+          productivity?: number
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string
+          due_date: string | null
+          id: string
+          priority: string
+          status: string
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
