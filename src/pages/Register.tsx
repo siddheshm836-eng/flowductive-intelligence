@@ -2,24 +2,30 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Zap, Eye, EyeOff, ArrowRight, Mail, Lock, User } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState("");
-  const { register, loading } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    if (!name || !email || !password) { setError("Please fill all fields."); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (!name || !email || !password) { toast.error("Please fill all fields."); return; }
+    if (password.length < 6) { toast.error("Password must be at least 6 characters."); return; }
+    setSubmitting(true);
     const success = await register(name, email, password);
-    if (success) navigate("/dashboard");
-    else setError("Registration failed. Try again.");
+    setSubmitting(false);
+    if (success) {
+      toast.success("Account created! Please check your email to confirm your account.");
+      navigate("/login");
+    } else {
+      toast.error("Registration failed. This email may already be in use.");
+    }
   };
 
   return (
@@ -84,14 +90,12 @@ export default function Register() {
               </div>
             </div>
 
-            {error && <p className="text-rose text-xs bg-rose/10 border border-rose/20 rounded-lg px-3 py-2">{error}</p>}
-
             <button
               type="submit"
-              disabled={loading}
+              disabled={submitting}
               className="w-full flex items-center justify-center gap-2 bg-gradient-primary text-primary-foreground py-2.5 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-60 glow-cyan"
             >
-              {loading ? (
+              {submitting ? (
                 <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               ) : (
                 <>Create Account <ArrowRight className="w-4 h-4" /></>
@@ -104,6 +108,10 @@ export default function Register() {
             <Link to="/login" className="text-primary hover:underline font-medium">Sign in</Link>
           </p>
         </div>
+
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          A confirmation email will be sent after registration.
+        </p>
       </div>
     </div>
   );

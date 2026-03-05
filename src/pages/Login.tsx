@@ -2,22 +2,27 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Zap, Eye, EyeOff, ArrowRight, Mail, Lock } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Login() {
-  const [email, setEmail] = useState("alex@flowductive.io");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState("");
-  const { login, loading } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    if (!email || !password) { setError("Please fill all fields."); return; }
+    if (!email || !password) { toast.error("Please fill all fields."); return; }
+    setSubmitting(true);
     const success = await login(email, password);
-    if (success) navigate("/dashboard");
-    else setError("Invalid credentials.");
+    setSubmitting(false);
+    if (success) {
+      navigate("/dashboard");
+    } else {
+      toast.error("Invalid email or password.");
+    }
   };
 
   return (
@@ -69,14 +74,12 @@ export default function Login() {
               </div>
             </div>
 
-            {error && <p className="text-rose text-xs bg-rose/10 border border-rose/20 rounded-lg px-3 py-2">{error}</p>}
-
             <button
               type="submit"
-              disabled={loading}
+              disabled={submitting}
               className="w-full flex items-center justify-center gap-2 bg-gradient-primary text-primary-foreground py-2.5 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-60 glow-cyan"
             >
-              {loading ? (
+              {submitting ? (
                 <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               ) : (
                 <>Sign In <ArrowRight className="w-4 h-4" /></>
@@ -89,10 +92,6 @@ export default function Login() {
             <Link to="/register" className="text-primary hover:underline font-medium">Create account</Link>
           </p>
         </div>
-
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          Demo: use any email & password to login
-        </p>
       </div>
     </div>
   );
